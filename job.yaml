@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gemma-7b-sql
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: finetune
+        image: ${IMAGE}
+        env:
+        - name: HF_HOME
+          value: /cache
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: stoelinga
+              key: HF_TOKEN
+        resources:
+          limits:
+            nvidia.com/gpu: "8"
+        volumeMounts:
+        - name: hf-cache 
+          mountPath: /cache
+      volumes:
+      - name: hf-cache
+        persistentVolumeClaim:
+         claimName: hf-cache
