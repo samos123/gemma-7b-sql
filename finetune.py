@@ -1,4 +1,4 @@
-from peft import LoraConfig, PeftModel
+from peft import LoraConfig, PeftModel, prepare_model_for_int8_training
 import torch
 import transformers
 from trl import SFTTrainer
@@ -11,11 +11,17 @@ model_id = "google/gemma-7b"
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16
+    bnb_4bit_compute_dtype="float16",
+    bnb_4bit_use_double_quant=False,
 )
 
 tokenizer = AutoTokenizer.from_pretrained(model_id, token=os.environ['HF_TOKEN'])
-model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=bnb_config, device_map={"":0}, token=os.environ['HF_TOKEN'])
+model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=bnb_config,
+                                             device_map={"":0}, token=os.environ['HF_TOKEN'])
+
+if tokenizer.pad_token_id is None:
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+tokenizer.padding_side = "right" # Fix weird overflow issue with fp16 training
 
 device = "cuda:0"
 
@@ -26,7 +32,7 @@ lora_config = LoraConfig(
 )
 
 data = load_dataset("b-mc2/sql-create-context")
-template = """Generate valid SQL query for a given natural language query and schema.
+template = """<bos>Generate valid SQL query for a given natural language query and schema.
 In your response only provide valid SQL for the schema, do not provide anything else.
 
 Natural language query:
@@ -40,31 +46,38 @@ Schema:
 ## RESPONSE
 ```sql
 {answer}
-```"""
+```
+<eos>"""
 
 def prompt(data):
     text = template.format(question=data["question"], schema=data["context"], answer=data["answer"])
     return {'text': text}
 
 data = data.map(prompt)
-data = data.map(lambda samples: tokenizer(samples["text"]), batched=True)
+data = data.map(lambda samples: tokenizer(samples["text"], add_special_tokens=False), batched=True)
+
 
 trainer = SFTTrainer(
     model=model,
+    max_seq_length=8192,
     train_dataset=data["train"],
     args=transformers.TrainingArguments(
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
         warmup_steps=2,
-        max_steps=10,
+        num_train_epochs=1,
         learning_rate=2e-4,
         fp16=True,
+#        bf16=True,
         logging_steps=1,
         output_dir="outputs",
-        optim="paged_adamw_8bit"
+        optim="paged_adamw_32bit",
     ),
     peft_config=lora_config,
+    dataset_text_field="text",
+    packing=False,
 )
+
 print ("starting to fine-tune model")
 start = time.time()
 trainer.train()
@@ -117,8 +130,6 @@ print(tokenizer.decode(outputs[0], skip_special_tokens=True))
 # Merge with the base model to save a full model
 new_model = '/tmp/gemma-7b-sql-peft'
 trainer.model.save_pretrained(new_model)
-
-
 base_model = AutoModelForCausalLM.from_pretrained(
     model_id,
     low_cpu_mem_usage=True,

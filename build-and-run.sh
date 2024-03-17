@@ -2,6 +2,7 @@
 
 set -xe
 
+kubectl delete -f job.yaml || true
 
 export PROJECT_ID=$(gcloud config get project)
 export TAG=${TAG:-latest}
