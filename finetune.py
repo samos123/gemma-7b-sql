@@ -1,9 +1,10 @@
-from peft import LoraConfig, PeftModel, prepare_model_for_int8_training
+from peft import LoraConfig, PeftModel
 import torch
 import transformers
 from trl import SFTTrainer
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, GemmaTokenizer
 from datasets import load_dataset
+from accelerate import PartialState
 import os
 import time
 
@@ -15,9 +16,12 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_use_double_quant=False,
 )
 
+
+device_string = PartialState().process_index
+
 tokenizer = AutoTokenizer.from_pretrained(model_id, token=os.environ['HF_TOKEN'])
 model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=bnb_config,
-                                             device_map={"":0}, token=os.environ['HF_TOKEN'])
+                                             device_map={"": device_string}, token=os.environ['HF_TOKEN'])
 
 if tokenizer.pad_token_id is None:
     tokenizer.pad_token_id = tokenizer.eos_token_id

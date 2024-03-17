@@ -9,4 +9,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY finetune.py .
 
-CMD python3 finetune.py
+CMD accelerate launch finetune.py
