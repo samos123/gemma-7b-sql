@@ -19,7 +19,9 @@ spec:
         - bash
         - -c
         - |
-          curl -L -o /cache/gemma-7b-sql.nemo https://huggingface.co/samos123/gemma-7b-sql/resolve/main/nemo/checkpoints/gemma-7b-sql-nemo.nemo\?download\=true
+          if ! [ -f /cache/gemma-7b-sql.nemo ]; then
+            curl -L -o /cache/gemma-7b-sql.nemo https://huggingface.co/samos123/gemma-7b-sql/resolve/main/nemo/checkpoints/gemma-7b-sql-nemo.nemo\?download\=true
+          fi
           python scripts/deploy_triton.py --nemo_checkpoint /tmp/gemma-7b-sql.nemo --triton_model_name GEMMA
         resources:
           limits:
