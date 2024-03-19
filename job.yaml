@@ -23,7 +23,12 @@ spec:
         volumeMounts:
         - name: hf-cache 
           mountPath: /cache
+        - mountPath: /dev/shm
+          name: dshm
       volumes:
       - name: hf-cache
         persistentVolumeClaim:
          claimName: hf-cache
+      - name: dshm
+        emptyDir:
+           medium: Memory
