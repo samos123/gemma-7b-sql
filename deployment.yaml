@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gemma-7b-sql-triton
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gemma-7b-sql-triton
+  template:
+    metadata:
+      labels:
+        app: gemma-7b-sql-triton
+    spec:
+      containers:
+      - name: triton
+        image: nvcr.io/nvidia/nemo:24.01.gemma
+        args:
+        - bash
+        - -c
+        - |
+          curl -L -o /cache/gemma-7b-sql.nemo https://huggingface.co/samos123/gemma-7b-sql/resolve/main/nemo/checkpoints/gemma-7b-sql-nemo.nemo\?download\=true
+          python scripts/deploy_triton.py --nemo_checkpoint /tmp/gemma-7b-sql.nemo --triton_model_name GEMMA
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+        volumeMounts:
+        - name: hf-cache 
+          mountPath: /cache
+        - mountPath: /dev/shm
+          name: dshm
+      volumes:
+      - name: hf-cache
+        persistentVolumeClaim:
+         claimName: hf-cache
+      - name: dshm
+        emptyDir:
+           medium: Memory
