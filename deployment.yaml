@@ -22,10 +22,10 @@ spec:
           if ! [ -f /cache/gemma-7b-sql.nemo ]; then
             curl -L -o /cache/gemma-7b-sql.nemo https://huggingface.co/samos123/gemma-7b-sql/resolve/main/nemo/checkpoints/gemma-7b-sql-nemo.nemo\?download\=true
           fi
-          python scripts/deploy_triton.py --nemo_checkpoint /tmp/gemma-7b-sql.nemo --triton_model_name GEMMA
+          python /opt/NeMo/scripts/deploy/deploy_triton.py --nemo_checkpoint /cache/gemma-7b-sql.nemo --triton_model_name GEMMA --model_type gemma
         resources:
           limits:
-            nvidia.com/gpu: "1"
+            nvidia.com/gpu: "2"
         volumeMounts:
         - name: hf-cache 
           mountPath: /cache
